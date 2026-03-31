@@ -22,16 +22,6 @@ export async function executeQuery(
   sql: string,
   validator?: QueryValidator,
 ): Promise<QueryResult> {
-  const envConfig = connectionManager.getEnvConfig(env);
-
-  // Layer 2: keyword blocklist (fast-fail before touching the DB)
-  if (validator) {
-    const check = validator.validate(sql, envConfig.permissions);
-    if (!check.ok) {
-      throw new BlockedQueryError(check.reason);
-    }
-  }
-
   const pool = await connectionManager.getPool(env);
 
   // Apply row budget — only for SELECT statements
