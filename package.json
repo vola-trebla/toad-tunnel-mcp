@@ -1,6 +1,6 @@
 {
   "name": "toad-tunnel-mcp",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Multi-environment PostgreSQL MCP router with SSH tunnel management",
   "type": "module",
   "main": "dist/index.js",
