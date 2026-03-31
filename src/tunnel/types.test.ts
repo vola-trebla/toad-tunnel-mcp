@@ -5,6 +5,7 @@ import type { TunnelConfig } from "./types.js";
 const cfg: TunnelConfig = {
   bastion: "bastion.example.com",
   bastion_port: 22,
+  username: "deploy",
   key_path: "~/.ssh/id_rsa",
   local_port: 5433,
   remote_host: "localhost",

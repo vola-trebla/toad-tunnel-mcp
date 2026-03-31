@@ -1,5 +1,18 @@
 import * as z from "zod/v4";
 
+const TunnelConfigSchema = z.object({
+  bastion: z.string(),
+  bastion_port: z.number().default(22),
+  username: z.string(),
+  key_path: z.string(),
+  passphrase: z.string().optional(),
+  local_port: z.number(),
+  /** DB host as seen from the bastion. Defaults to env.host if omitted. */
+  remote_host: z.string().optional(),
+  /** DB port as seen from the bastion. Defaults to env.port if omitted. */
+  remote_port: z.number().optional(),
+});
+
 const EnvConfigSchema = z.object({
   host: z.string(),
   port: z.number().default(5432),
@@ -8,13 +21,7 @@ const EnvConfigSchema = z.object({
   password: z.string(),
   permissions: z.enum(["read-write", "read-only"]),
   approval: z.enum(["auto", "hitl"]),
-});
-
-const TunnelConfigSchema = z.object({
-  bastion: z.string(),
-  bastion_port: z.number().default(22),
-  key_path: z.string(),
-  local_port: z.number(),
+  tunnel: TunnelConfigSchema.optional(),
 });
 
 const SafetyConfigSchema = z.object({
