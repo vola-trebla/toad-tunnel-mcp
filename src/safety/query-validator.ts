@@ -79,11 +79,18 @@ export class QueryValidator {
     };
   }
 
-  /** Normalize SQL for keyword matching: strip comments, uppercase, collapse whitespace */
+  /**
+   * Normalize SQL for keyword matching: strip comments, uppercase, collapse whitespace.
+   *
+   * Note: nested block comments (e.g. /‌* /‌* inner *‌/ outer *‌/) are not fully handled —
+   * the lazy regex may leave trailing comment text as SQL. This errs on the side of
+   * over-blocking (false positives), which is the safe default. The primary defence
+   * is always the PostgreSQL read-only role, not this blocklist.
+   */
   private _normalize(sql: string): string {
     return sql
       .replace(/--[^\n]*/g, " ") // strip line comments
-      .replace(/\/\*[\s\S]*?\*\//g, " ") // strip block comments
+      .replace(/\/\*[\s\S]*?\*\//g, " ") // strip block comments (non-nested)
       .toUpperCase()
       .replace(/\s+/g, " ")
       .trim();
