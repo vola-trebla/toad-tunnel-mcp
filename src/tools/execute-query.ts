@@ -8,12 +8,13 @@ import { toolError } from "../utils/tool-result.js";
 import { envEnum } from "../utils/env-enum.js";
 
 const SQL_PREVIEW_MAX = 500;
+const DEFAULT_HITL_TIMEOUT_MS = 60_000;
 
-/** Truncate SQL for display in the elicitation prompt */
+/** Truncate and sanitize SQL for display in the elicitation prompt */
 function sqlPreview(sql: string): string {
-  const trimmed = sql.trim();
-  if (trimmed.length <= SQL_PREVIEW_MAX) return trimmed;
-  return trimmed.slice(0, SQL_PREVIEW_MAX) + "\n… (truncated)";
+  const sanitized = sql.trim().replace(/`/g, "\\`");
+  if (sanitized.length <= SQL_PREVIEW_MAX) return sanitized;
+  return sanitized.slice(0, SQL_PREVIEW_MAX) + "\n… (truncated)";
 }
 
 export function registerExecuteQuery(
@@ -57,9 +58,18 @@ export function registerExecuteQuery(
       };
 
       try {
+        // Layer 2: keyword blocklist — fast-fail before bothering the user with HITL
+        if (validator) {
+          const check = validator.validate(sql, envConfig.permissions);
+          if (!check.ok) {
+            audit("blocked", { reason: check.reason });
+            throw new BlockedQueryError(check.reason);
+          }
+        }
+
         // Layer 3: HITL confirmation for environments that require it
         if (envConfig.approval === "hitl") {
-          const timeoutMs = validator?.hitlTimeoutMs ?? 60_000;
+          const timeoutMs = validator?.hitlTimeoutMs ?? DEFAULT_HITL_TIMEOUT_MS;
 
           let elicitResult: {
             action: string;

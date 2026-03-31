@@ -256,9 +256,8 @@ describe("Safety pipeline — prod env, HITL required", () => {
       content: { confirmed: true },
     });
 
-    // With blocklist enabled, DELETE is caught AFTER HITL (since HITL runs first in the handler,
-    // then executeQuery runs the blocklist check). This tests the actual order in the pipeline.
-    // HITL env + read-only permissions → elicitation fires, user approves, then blocklist catches DELETE.
+    // Blocklist runs BEFORE HITL — no point asking the user to approve
+    // a query that will be rejected anyway.
     registerExecuteQuery(
       server as never,
       manager as never,
@@ -269,8 +268,8 @@ describe("Safety pipeline — prod env, HITL required", () => {
       sql: "DELETE FROM products WHERE id = 1",
     });
 
-    // HITL fires first, user approved, then blocklist catches it
-    expect(server.server.elicitInput).toHaveBeenCalledOnce();
+    // Blocklist catches DELETE before HITL fires
+    expect(server.server.elicitInput).not.toHaveBeenCalled();
     expect(pool.query).not.toHaveBeenCalled();
     expect(result.content[0].text).toContain("Blocked keyword");
   });
