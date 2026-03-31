@@ -7,7 +7,7 @@ import { toolError } from "../utils/tool-result.js";
 export function registerTunnelStatus(
   server: McpServer,
   connectionManager: ConnectionManager,
-  tunnelProvider: TunnelProvider,
+  tunnelProvider?: TunnelProvider,
 ): void {
   server.registerTool(
     "toad_tunnel__tunnel_status",
@@ -20,6 +20,21 @@ export function registerTunnelStatus(
     },
     async () => {
       try {
+        const hasTunnels = connectionManager
+          .getEnvNames()
+          .some((env) => connectionManager.getEnvConfig(env).tunnel);
+
+        if (!hasTunnels) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "No tunnels configured in any environment.",
+              },
+            ],
+          };
+        }
+
         const lines: string[] = [
           "env\tstatus\tlocal_port\tuptime_s\tlast_query_at",
         ];
@@ -31,7 +46,7 @@ export function registerTunnelStatus(
             continue;
           }
 
-          const tunnel = tunnelProvider.getStatus(env);
+          const tunnel = tunnelProvider?.getStatus(env);
           if (!tunnel) {
             lines.push(`${env}\tdisconnected\t${cfg.tunnel.local_port}\t-\t-`);
             continue;
