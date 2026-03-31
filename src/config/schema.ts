@@ -28,6 +28,8 @@ const SafetyConfigSchema = z.object({
   blocked_keywords: z.array(z.string()).default([]),
   max_rows: z.number().default(100),
   hitl_timeout_ms: z.number().default(60_000),
+  /** File path to append audit log entries. Omit to write to stderr. */
+  audit_log_file: z.string().optional(),
 });
 
 export const ConfigSchema = z.object({
