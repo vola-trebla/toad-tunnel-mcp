@@ -4,7 +4,8 @@ import { type ConnectionManager } from "../router/connection-manager.js";
 import { type SchemaCache } from "../schema/cache.js";
 import { queryColumns } from "../schema/queries.js";
 import { formatColumnsCompact } from "../schema/formatter.js";
-import { ToadError } from "../utils/errors.js";
+import { toolError } from "../utils/tool-result.js";
+import { envEnum } from "../utils/env-enum.js";
 
 export function registerDescribeColumns(
   server: McpServer,
@@ -21,9 +22,7 @@ export function registerDescribeColumns(
         "Results are cached for 5 minutes. " +
         `Available environments: ${envNames.join(", ")}.`,
       inputSchema: z.object({
-        env: z
-          .enum(envNames as [string, ...string[]])
-          .describe("Target environment"),
+        env: envEnum(envNames).describe("Target environment"),
         schema: z.string().default("public").describe("PostgreSQL schema name"),
         table: z.string().describe("Table name"),
       }),
@@ -33,7 +32,7 @@ export function registerDescribeColumns(
         const cacheKey = `columns:${env}:${schema}.${table}`;
         const cached = cache.get<string>(cacheKey);
         if (cached) {
-          return { content: [{ type: "text" as const, text: cached }] };
+          return { content: [{ type: "text", text: cached }] };
         }
 
         const pool = await connectionManager.getPool(env);
@@ -43,7 +42,7 @@ export function registerDescribeColumns(
           return {
             content: [
               {
-                type: "text" as const,
+                type: "text",
                 text: `Table "${schema}.${table}" not found or has no columns`,
               },
             ],
@@ -53,13 +52,9 @@ export function registerDescribeColumns(
 
         const text = formatColumnsCompact(columns);
         cache.set(cacheKey, text);
-        return { content: [{ type: "text" as const, text }] };
+        return { content: [{ type: "text", text }] };
       } catch (err) {
-        const message = err instanceof ToadError ? err.message : String(err);
-        return {
-          content: [{ type: "text" as const, text: `Error: ${message}` }],
-          isError: true,
-        };
+        return toolError(err);
       }
     },
   );

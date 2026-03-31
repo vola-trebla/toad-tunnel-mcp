@@ -32,7 +32,7 @@ const SafetyConfigSchema = z.object({
 export const ConfigSchema = z.object({
   project: z.string(),
   environments: z.record(z.string(), EnvConfigSchema),
-  tunnels: z
+  tunnel_options: z
     .object({
       idle_timeout_ms: z.number().default(300_000),
       keepalive_interval_ms: z.number().default(30_000),
