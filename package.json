@@ -1,0 +1,32 @@
+{
+  "name": "toad-tunnel-mcp",
+  "version": "0.1.0",
+  "description": "Multi-environment PostgreSQL MCP router with SSH tunnel management",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "toad-tunnel-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": ["mcp", "postgresql", "ssh-tunnel", "multi-env"],
+  "author": "vola-trebla",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "pg": "^8.20.0",
+    "yaml": "^2.8.3",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "@types/pg": "^8.20.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.2"
+  }
+}
