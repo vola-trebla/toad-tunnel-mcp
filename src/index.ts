@@ -9,6 +9,7 @@ import { registerListNodes } from "./tools/list-nodes.js";
 import { registerGetOverview } from "./tools/get-overview.js";
 import { registerDescribeColumns } from "./tools/describe-columns.js";
 import { registerTunnelStatus } from "./tools/tunnel-status.js";
+import { QueryValidator } from "./safety/query-validator.js";
 
 const CONFIG_PATH = process.env["TOAD_CONFIG"] ?? "config/toad-tunnel.yaml";
 
@@ -35,7 +36,8 @@ const server = new McpServer({
 registerListNodes(server, connectionManager);
 registerGetOverview(server, connectionManager, schemaCache);
 registerDescribeColumns(server, connectionManager, schemaCache);
-registerExecuteQuery(server, connectionManager);
+const validator = new QueryValidator(config.safety);
+registerExecuteQuery(server, connectionManager, validator);
 if (tunnelProvider) {
   registerTunnelStatus(server, connectionManager, tunnelProvider);
 }
