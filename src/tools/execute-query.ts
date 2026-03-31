@@ -2,7 +2,8 @@ import * as z from "zod/v4";
 import { type McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { type ConnectionManager } from "../router/connection-manager.js";
 import { type QueryValidator } from "../safety/query-validator.js";
-import { executeQuery } from "../router/query-executor.js";
+import { executeQuery, BlockedQueryError } from "../router/query-executor.js";
+import { type AuditLogger } from "../audit/logger.js";
 import { toolError } from "../utils/tool-result.js";
 import { envEnum } from "../utils/env-enum.js";
 
@@ -19,6 +20,7 @@ export function registerExecuteQuery(
   server: McpServer,
   connectionManager: ConnectionManager,
   validator?: QueryValidator,
+  auditLogger?: AuditLogger,
 ): void {
   const envNames = connectionManager.getEnvNames();
 
@@ -35,9 +37,26 @@ export function registerExecuteQuery(
       }),
     },
     async ({ env, sql }) => {
-      try {
-        const envConfig = connectionManager.getEnvConfig(env);
+      const envConfig = connectionManager.getEnvConfig(env);
+      const database = envConfig.database;
+      const start = Date.now();
 
+      const audit = (
+        status: "success" | "blocked" | "rejected",
+        extra?: { row_count?: number; reason?: string },
+      ) => {
+        auditLogger?.log({
+          timestamp: new Date().toISOString(),
+          env,
+          database,
+          sql,
+          status,
+          duration_ms: Date.now() - start,
+          ...extra,
+        });
+      };
+
+      try {
         // Layer 3: HITL confirmation for environments that require it
         if (envConfig.approval === "hitl") {
           const timeoutMs = validator?.hitlTimeoutMs ?? 60_000;
@@ -74,32 +93,29 @@ export function registerExecuteQuery(
               ),
             ]);
           } catch (err) {
-            const msg =
+            const reason =
               err instanceof Error && err.message === "HITL_TIMEOUT"
-                ? `Query rejected: approval timed out after ${timeoutMs / 1000}s.`
-                : `Query rejected: elicitation failed (${err instanceof Error ? err.message : String(err)}).`;
-            return { content: [{ type: "text", text: msg }] };
+                ? `approval timed out after ${timeoutMs / 1000}s`
+                : `elicitation failed (${err instanceof Error ? err.message : String(err)})`;
+            audit("rejected", { reason });
+            return {
+              content: [{ type: "text", text: `Query rejected: ${reason}.` }],
+            };
           }
 
           if (elicitResult.action !== "accept") {
+            const reason = `user ${elicitResult.action === "decline" ? "declined" : "cancelled"} approval`;
+            audit("rejected", { reason });
             return {
-              content: [
-                {
-                  type: "text",
-                  text: `Query rejected: user ${elicitResult.action === "decline" ? "declined" : "cancelled"} approval.`,
-                },
-              ],
+              content: [{ type: "text", text: `Query rejected: ${reason}.` }],
             };
           }
 
           if (!elicitResult.content?.["confirmed"]) {
+            const reason = "approval checkbox was not checked";
+            audit("rejected", { reason });
             return {
-              content: [
-                {
-                  type: "text",
-                  text: "Query rejected: approval checkbox was not checked.",
-                },
-              ],
+              content: [{ type: "text", text: `Query rejected: ${reason}.` }],
             };
           }
         }
@@ -110,6 +126,8 @@ export function registerExecuteQuery(
           sql,
           validator,
         );
+
+        audit("success", { row_count: result.rowCount });
 
         if (result.rowCount === 0 && !result.truncated) {
           return { content: [{ type: "text", text: "(no rows)" }] };
@@ -126,6 +144,9 @@ export function registerExecuteQuery(
 
         return { content: [{ type: "text", text: lines.join("\n") }] };
       } catch (err) {
+        if (err instanceof BlockedQueryError) {
+          audit("blocked", { reason: err.message });
+        }
         return toolError(err);
       }
     },

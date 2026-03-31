@@ -10,6 +10,7 @@ import { registerGetOverview } from "./tools/get-overview.js";
 import { registerDescribeColumns } from "./tools/describe-columns.js";
 import { registerTunnelStatus } from "./tools/tunnel-status.js";
 import { QueryValidator } from "./safety/query-validator.js";
+import { AuditLogger } from "./audit/logger.js";
 
 const CONFIG_PATH = process.env["TOAD_CONFIG"] ?? "config/toad-tunnel.yaml";
 
@@ -37,7 +38,8 @@ registerListNodes(server, connectionManager);
 registerGetOverview(server, connectionManager, schemaCache);
 registerDescribeColumns(server, connectionManager, schemaCache);
 const validator = new QueryValidator(config.safety);
-registerExecuteQuery(server, connectionManager, validator);
+const auditLogger = new AuditLogger(config.safety?.audit_log_file);
+registerExecuteQuery(server, connectionManager, validator, auditLogger);
 if (tunnelProvider) {
   registerTunnelStatus(server, connectionManager, tunnelProvider);
 }
