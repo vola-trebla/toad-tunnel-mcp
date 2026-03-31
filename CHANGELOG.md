@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cache `getVersion()` result to avoid repeated `readFileSync` on every call
 - Fix README Quick Start config copy command
 
-## [0.1.0] — 2026-04-01
+## [0.1.0] — 2026-03-31
 
 Initial release.
 

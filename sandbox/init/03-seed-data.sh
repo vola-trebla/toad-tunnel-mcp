@@ -60,7 +60,8 @@ seed_db() {
       fi
     fi
 
-    echo "INSERT INTO products (code, title, price, currency, source, status) VALUES ('$ITEM', '$TITLE', $PRICE, '$CURRENCY', '$SOURCE', '$STATUS');" >> "$TMPFILE"
+    local SAFE_TITLE="${TITLE//\'/\'\'}"
+    echo "INSERT INTO products (code, title, price, currency, source, status) VALUES ('$ITEM', '$SAFE_TITLE', $PRICE, '$CURRENCY', '$SOURCE', '$STATUS');" >> "$TMPFILE"
   done
 
   # --- data_checks ---

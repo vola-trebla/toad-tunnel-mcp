@@ -123,7 +123,13 @@ registerGetOverview(server, connectionManager, schemaCache);
 registerDescribeColumns(server, connectionManager, schemaCache);
 const validator = new QueryValidator(config.safety);
 const auditLogger = new AuditLogger(config.safety?.audit_log_file);
-registerExecuteQuery(server, connectionManager, validator, auditLogger);
+registerExecuteQuery(
+  server,
+  connectionManager,
+  validator,
+  auditLogger,
+  schemaCache,
+);
 registerTunnelStatus(server, connectionManager, tunnelProvider);
 
 process.on("SIGINT", async () => {
