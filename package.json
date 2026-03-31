@@ -7,16 +7,31 @@
   "bin": {
     "toad-tunnel-mcp": "dist/index.js"
   },
+  "files": [
+    "dist",
+    "config/toad-tunnel.example.yaml",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vola-trebla/toad-tunnel-mcp.git"
+  },
   "scripts": {
-    "build": "tsc",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "validate": "node dist/index.js validate",
     "sandbox:up": "docker compose -f sandbox/docker-compose.yml up -d",
     "sandbox:down": "docker compose -f sandbox/docker-compose.yml down",
     "sandbox:reset": "docker compose -f sandbox/docker-compose.yml down -v && docker compose -f sandbox/docker-compose.yml up -d",
     "sandbox:logs": "docker compose -f sandbox/docker-compose.yml logs -f",
-    "sandbox:verify": "npm run sandbox:wait && vitest run sandbox/verify.test.ts",
+    "sandbox:verify": "npm run sandbox:wait && vitest run sandbox/verify.test.ts src/router/pg-roles.test.ts",
     "sandbox:wait": "until docker compose -f sandbox/docker-compose.yml exec -T postgres pg_isready -U toad -d postgres > /dev/null 2>&1; do sleep 1; done",
     "prepare": "husky",
     "format": "prettier --write .",
@@ -27,9 +42,13 @@
   },
   "keywords": [
     "mcp",
+    "model-context-protocol",
     "postgresql",
+    "postgres",
     "ssh-tunnel",
-    "multi-env"
+    "multi-env",
+    "database",
+    "ai-tools"
   ],
   "author": "vola-trebla",
   "license": "MIT",
