@@ -21,14 +21,14 @@ npm install -g toad-tunnel-mcp
 ## Quick Start
 
 ```bash
-# Copy and edit the example config
-cp node_modules/toad-tunnel-mcp/config/toad-tunnel.example.yaml config/toad-tunnel.yaml
+# Create a config from the example
+curl -o toad-tunnel.yaml https://raw.githubusercontent.com/vola-trebla/toad-tunnel-mcp/main/config/toad-tunnel.example.yaml
 
-# Validate config
-toad-tunnel-mcp validate --config config/toad-tunnel.yaml
+# Edit for your setup, then validate
+toad-tunnel-mcp validate --config toad-tunnel.yaml
 
 # Run (stdio MCP server)
-toad-tunnel-mcp --config config/toad-tunnel.yaml
+toad-tunnel-mcp --config toad-tunnel.yaml
 ```
 
 ## Configuration

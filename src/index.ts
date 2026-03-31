@@ -20,7 +20,7 @@ import { AuditLogger } from "./audit/logger.js";
 // CLI argument handling
 // ---------------------------------------------------------------------------
 
-function getVersion(): string {
+function readVersion(): string {
   try {
     const pkgPath = join(
       dirname(fileURLToPath(import.meta.url)),
@@ -36,6 +36,8 @@ function getVersion(): string {
   }
 }
 
+const VERSION = readVersion();
+
 function getConfigPath(argv: string[]): string {
   const idx = argv.indexOf("--config");
   if (idx !== -1 && argv[idx + 1]) return argv[idx + 1]!;
@@ -45,12 +47,12 @@ function getConfigPath(argv: string[]): string {
 const cliArgs = process.argv.slice(2);
 
 if (cliArgs.includes("--version") || cliArgs.includes("-v")) {
-  console.log(`toad-tunnel-mcp v${getVersion()}`);
+  console.log(`toad-tunnel-mcp v${VERSION}`);
   process.exit(0);
 }
 
 if (cliArgs.includes("--help") || cliArgs.includes("-h")) {
-  console.log(`toad-tunnel-mcp v${getVersion()}
+  console.log(`toad-tunnel-mcp v${VERSION}
 Multi-environment PostgreSQL MCP router with SSH tunnel management.
 
 Usage:
@@ -113,7 +115,7 @@ const schemaCache = new SchemaCache();
 
 const server = new McpServer({
   name: "toad-tunnel-mcp",
-  version: getVersion(),
+  version: VERSION,
 });
 
 registerListNodes(server, connectionManager);
