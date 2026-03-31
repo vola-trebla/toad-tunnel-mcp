@@ -12,17 +12,23 @@ One MCP server, all your environments, auto-managed SSH tunnels.
 - **Progressive disclosure** — discover envs → tables → columns, load only what's needed
 - **Safety** — PG read-only roles + keyword blocklist + HITL confirmation + row budgets + audit log
 
+## Install
+
+```bash
+npm install -g toad-tunnel-mcp
+```
+
 ## Quick Start
 
 ```bash
-git clone https://github.com/vola-trebla/toad-tunnel-mcp.git
-cd toad-tunnel-mcp && npm install
+# Copy and edit the example config
+cp node_modules/toad-tunnel-mcp/config/toad-tunnel.example.yaml config/toad-tunnel.yaml
 
-# Sandbox: 4 PostgreSQL envs via Docker
-npm run sandbox:up
+# Validate config
+toad-tunnel-mcp validate --config config/toad-tunnel.yaml
 
-# Run
-npm run dev
+# Run (stdio MCP server)
+toad-tunnel-mcp --config config/toad-tunnel.yaml
 ```
 
 ## Configuration
@@ -62,7 +68,7 @@ safety:
   hitl_timeout_ms: 60000
 ```
 
-Full config reference: see `config/toad-tunnel.yaml` and `src/config/schema.ts`.
+Full annotated example: [`config/toad-tunnel.example.yaml`](config/toad-tunnel.example.yaml)
 
 ## Tools
 
@@ -83,13 +89,19 @@ Add to Claude Desktop `claude_desktop_config.json` or Claude Code `.mcp.json`:
   "mcpServers": {
     "toad-tunnel": {
       "command": "npx",
-      "args": ["tsx", "/path/to/toad-tunnel-mcp/src/index.ts"],
-      "env": {
-        "TOAD_CONFIG": "/path/to/toad-tunnel.yaml"
-      }
+      "args": ["toad-tunnel-mcp", "--config", "/path/to/toad-tunnel.yaml"]
     }
   }
 }
+```
+
+## CLI
+
+```
+toad-tunnel-mcp --version
+toad-tunnel-mcp --help
+toad-tunnel-mcp validate [--config <path>]
+toad-tunnel-mcp [--config <path>]          # start MCP server
 ```
 
 ## License
