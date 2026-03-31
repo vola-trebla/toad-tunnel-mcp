@@ -4,8 +4,11 @@ import { type ConnectionManager } from "../router/connection-manager.js";
 import { type QueryValidator } from "../safety/query-validator.js";
 import { executeQuery, BlockedQueryError } from "../router/query-executor.js";
 import { type AuditLogger } from "../audit/logger.js";
+import { type SchemaCache } from "../schema/cache.js";
 import { toolError } from "../utils/tool-result.js";
 import { envEnum } from "../utils/env-enum.js";
+
+const DDL_PATTERN = /\b(ALTER|CREATE|DROP)\b/i;
 
 const SQL_PREVIEW_MAX = 500;
 const DEFAULT_HITL_TIMEOUT_MS = 60_000;
@@ -22,6 +25,7 @@ export function registerExecuteQuery(
   connectionManager: ConnectionManager,
   validator?: QueryValidator,
   auditLogger?: AuditLogger,
+  schemaCache?: SchemaCache,
 ): void {
   const envNames = connectionManager.getEnvNames();
 
@@ -138,6 +142,11 @@ export function registerExecuteQuery(
         );
 
         audit("success", { row_count: result.rowCount });
+
+        // Invalidate schema cache if DDL was executed
+        if (schemaCache && DDL_PATTERN.test(sql)) {
+          schemaCache.invalidate(env);
+        }
 
         if (result.rowCount === 0 && !result.truncated) {
           return { content: [{ type: "text", text: "(no rows)" }] };

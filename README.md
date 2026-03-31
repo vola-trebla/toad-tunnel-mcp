@@ -111,6 +111,27 @@ toad-tunnel-mcp validate [--config <path>]
 toad-tunnel-mcp [--config <path>]          # start MCP server
 ```
 
+## Safety model
+
+Defense-in-depth with four layers:
+
+1. **PostgreSQL read-only roles** — primary defence, enforced at the DB level
+2. **Keyword blocklist** — fast-fail for destructive SQL (`DROP`, `DELETE`, etc.) before reaching the DB
+3. **Row budget** — wraps SELECT/CTE queries in a subquery with `LIMIT max_rows+1`
+4. **HITL elicitation** — environments with `approval: hitl` require human confirmation
+
+### Blocklist limitations
+
+The blocklist operates on normalized SQL text, not a parsed AST. This means:
+
+- **Over-blocking**: keywords inside string literals trigger the blocklist (e.g. `WHERE msg = 'Please DELETE this'`)
+- **Not a security boundary**: the primary defence is always the PostgreSQL read-only role
+
+When `blocked_keywords` is omitted from config, the following defaults are used:
+`DROP`, `DELETE`, `ALTER`, `TRUNCATE`, `GRANT`, `REVOKE`, `CREATE`, `UPDATE`, `INSERT`.
+
+Passwords in config support `${ENV_VAR}` interpolation to avoid plaintext secrets.
+
 ## License
 
 MIT
