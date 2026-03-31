@@ -2,35 +2,30 @@
 
 Multi-environment PostgreSQL MCP router with SSH tunnel management.
 
-> One MCP endpoint. All your environments. Auto-managed SSH tunnels.
+One MCP server, all your environments, auto-managed SSH tunnels.
 
-## Problem
+## What it does
 
-Enterprise PostgreSQL setups span multiple environments (dev, stage, prod), each with separate credentials and often behind SSH bastions. Current MCP database tools require a separate server instance per database, bloating the context window with 60k-150k tokens of metadata and dropping tool selection accuracy to ~49%.
-
-## Solution
-
-A unified MCP server that:
-
-- Exposes **3+1 tools** instead of 72+ (99% token reduction)
-- Routes queries via `env` enum validated by Zod — protocol-enforced safety
-- Auto-manages **SSH tunnels** per environment (lazy connect → keep-alive → idle disconnect)
-- Implements **progressive disclosure** — model only loads schema it needs
-- Enforces **HITL confirmation** for prod, keyword blocklists, row budgets
+- **5 tools** instead of a separate MCP instance per database
+- **Env-gated routing** via Zod enum — `dev`, `stage`, `prod` as first-class parameter
+- **SSH tunnels** with lazy connect, keep-alive, idle disconnect, reconnect with backoff
+- **Progressive disclosure** — discover envs → tables → columns, load only what's needed
+- **Safety** — PG read-only roles + keyword blocklist + HITL confirmation + row budgets + audit log
 
 ## Quick Start
 
 ```bash
-npm install
+git clone https://github.com/vola-trebla/toad-tunnel-mcp.git
+cd toad-tunnel-mcp && npm install
 
-# Start sandbox databases
+# Sandbox: 4 PostgreSQL envs via Docker
 npm run sandbox:up
 
-# Run in dev mode
+# Run
 npm run dev
 ```
 
-## Config
+## Configuration
 
 ```yaml
 # config/toad-tunnel.yaml
@@ -40,28 +35,48 @@ environments:
   dev:
     host: localhost
     port: 5432
-    database: my_dev_db
+    database: app_dev
     user: dev_user
-    password: ${DEV_PG_PASSWORD}
-    permissions: read-write
-    approval: auto
+    password: dev_secret
+    permissions: read-write       # read-write | read-only
+    approval: auto                # auto | hitl
 
   prod:
     host: prod-db.internal
     port: 5432
-    database: my_prod_db
+    database: app_prod
     user: prod_reader
-    password: ${PROD_PG_PASSWORD}
+    password: prod_secret
     permissions: read-only
-    approval: hitl
+    approval: hitl                # requires human confirmation
     tunnel:
-      bastion: bastion.prod.company.com
-      bastion_port: 22
+      bastion: bastion.company.com
+      username: deploy
       key_path: ~/.ssh/prod_key
       local_port: 5434
+
+# Optional
+safety:
+  blocked_keywords: [DROP, DELETE, ALTER, TRUNCATE]
+  max_rows: 100
+  hitl_timeout_ms: 60000
 ```
 
-## Claude Code Integration
+Full config reference: see `config/toad-tunnel.yaml` and `src/config/schema.ts`.
+
+## Tools
+
+| Tool | Description |
+|------|-------------|
+| `toad_tunnel__list_nodes` | Discover environments, permissions, approval mode |
+| `toad_tunnel__get_overview` | Tables + estimated row counts (cached 5min) |
+| `toad_tunnel__describe_columns` | Compact column schema for a table (cached 5min) |
+| `toad_tunnel__execute_query` | Run SQL with blocklist, HITL, row budget |
+| `toad_tunnel__tunnel_status` | SSH tunnel state per environment |
+
+## MCP Integration
+
+Add to Claude Desktop `claude_desktop_config.json` or Claude Code `.mcp.json`:
 
 ```json
 {
@@ -70,25 +85,12 @@ environments:
       "command": "npx",
       "args": ["tsx", "/path/to/toad-tunnel-mcp/src/index.ts"],
       "env": {
-        "TOAD_CONFIG": "/path/to/toad-tunnel.yaml",
-        "DEV_PG_PASSWORD": "...",
-        "PROD_PG_PASSWORD": "..."
+        "TOAD_CONFIG": "/path/to/toad-tunnel.yaml"
       }
     }
   }
 }
 ```
-
-## Roadmap
-
-| Phase | Description                                                   | Status     |
-| ----- | ------------------------------------------------------------- | ---------- |
-| 0     | Sandbox Setup — multi-env PostgreSQL playground               | ✅ Done    |
-| 1     | Core MCP Router — single endpoint, multi-env routing          | ✅ Done    |
-| 2     | Progressive Disclosure — token-efficient schema introspection | 🔜 Next    |
-| 3     | SSH Tunnel Management — auto lifecycle per environment        | ⏳ Planned |
-| 4     | Safety Layer — defense-in-depth for production                | ⏳ Planned |
-| 5     | Ship It — npm publish, docs, CI                               | ⏳ Planned |
 
 ## License
 
