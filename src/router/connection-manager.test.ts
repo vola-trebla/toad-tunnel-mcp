@@ -1,6 +1,7 @@
 import { describe, it, expect, afterAll } from "vitest";
 import { ConnectionManager } from "./connection-manager.js";
 import { UnknownEnvError, ConnectionError } from "../utils/errors.js";
+import { MockTunnelProvider } from "../tunnel/mock-provider.js";
 import { type Config } from "../config/schema.js";
 
 const sandboxConfig: Config = {
@@ -97,5 +98,75 @@ describe("ConnectionManager", () => {
     await tempManager.shutdown();
     // @ts-expect-error accessing private for test
     expect(tempManager.pools.size).toBe(0);
+  });
+});
+
+const tunnelConfig: Config = {
+  project: "test",
+  environments: {
+    dev: {
+      host: "localhost",
+      port: 5432,
+      database: "sandbox_dev",
+      user: "toad",
+      password: "toad_secret",
+      permissions: "read-write",
+      approval: "auto",
+    },
+    tunneled: {
+      host: "remote-db.internal",
+      port: 5432,
+      database: "sandbox_dev",
+      user: "toad",
+      password: "toad_secret",
+      permissions: "read-only",
+      approval: "auto",
+      tunnel: {
+        bastion: "bastion.example.com",
+        bastion_port: 22,
+        username: "deploy",
+        key_path: "~/.ssh/id_rsa",
+        local_port: 5432, // mock will redirect here — resolves to sandbox_dev
+        remote_host: "localhost",
+        remote_port: 5432,
+      },
+    },
+  },
+};
+
+describe("ConnectionManager with TunnelProvider", () => {
+  it("no tunnels open at startup — provider has 0 active tunnels", () => {
+    const provider = new MockTunnelProvider();
+    new ConnectionManager(tunnelConfig, provider);
+    expect(provider.getStatus("tunneled")).toBeNull();
+  });
+
+  it("tunnel opens lazily on first getPool() call for tunneled env", async () => {
+    const provider = new MockTunnelProvider();
+    const manager = new ConnectionManager(tunnelConfig, provider);
+
+    expect(provider.getStatus("tunneled")).toBeNull();
+    await manager.getPool("tunneled");
+    expect(provider.getStatus("tunneled")?.status).toBe("active");
+
+    await manager.shutdown();
+  });
+
+  it("non-tunneled env does not open a tunnel", async () => {
+    const provider = new MockTunnelProvider();
+    const manager = new ConnectionManager(tunnelConfig, provider);
+
+    await manager.getPool("dev");
+    expect(provider.getStatus("dev")).toBeNull();
+
+    await manager.shutdown();
+  });
+
+  it("shutdown calls disconnectAll on the tunnel provider", async () => {
+    const provider = new MockTunnelProvider();
+    const manager = new ConnectionManager(tunnelConfig, provider);
+    await manager.getPool("tunneled");
+    await manager.shutdown();
+    expect(provider.getStatus("tunneled")).toBeNull();
   });
 });

@@ -5,8 +5,12 @@ export interface TunnelConfig {
   bastion: string;
   /** SSH port on the bastion (default 22) */
   bastion_port: number;
+  /** SSH username */
+  username: string;
   /** Path to SSH private key file */
   key_path: string;
+  /** Passphrase for encrypted private key (optional) */
+  passphrase?: string;
   /** Local TCP port to bind — pg.Pool connects here */
   local_port: number;
   /** Target DB host as seen from the bastion (e.g. "localhost" or internal hostname) */
