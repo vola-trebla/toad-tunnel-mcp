@@ -4,8 +4,6 @@ Multi-environment PostgreSQL MCP router with SSH tunnel management.
 
 > One MCP endpoint. All your environments. Auto-managed SSH tunnels.
 
-![Roadmap](docs/roadmap.svg)
-
 ## Problem
 
 Enterprise PostgreSQL setups span multiple environments (dev, stage, prod), each with separate credentials and often behind SSH bastions. Current MCP database tools require a separate server instance per database, bloating the context window with 60k-150k tokens of metadata and dropping tool selection accuracy to ~49%.
