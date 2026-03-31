@@ -3,7 +3,12 @@ import pg from "pg";
 
 const { Pool } = pg;
 
-const DATABASES = ["sandbox_dev", "sandbox_stage", "sandbox_prod", "sandbox_dev2"] as const;
+const DATABASES = [
+  "sandbox_dev",
+  "sandbox_stage",
+  "sandbox_prod",
+  "sandbox_dev2",
+] as const;
 const TABLES = ["products", "categories", "data_checks"] as const;
 
 const EXPECTED_MIN_ROWS: Record<string, Record<string, number>> = {
@@ -58,7 +63,7 @@ describe("Sandbox verification", () => {
           const result = await pool.query(
             `SELECT column_name FROM information_schema.columns
              WHERE table_name = $1 ORDER BY ordinal_position`,
-            [table]
+            [table],
           );
           const columns = result.rows.map((r) => r.column_name);
           expect(columns.length).toBeGreaterThan(0);
@@ -93,7 +98,9 @@ describe("Sandbox verification", () => {
         const minRows = EXPECTED_MIN_ROWS[db][table];
         it(`${db}.${table} has at least ${minRows} rows`, async () => {
           const pool = getPool(db);
-          const result = await pool.query(`SELECT COUNT(*)::int AS cnt FROM ${table}`);
+          const result = await pool.query(
+            `SELECT COUNT(*)::int AS cnt FROM ${table}`,
+          );
           expect(result.rows[0].cnt).toBeGreaterThanOrEqual(minRows);
         });
       }
@@ -104,7 +111,7 @@ describe("Sandbox verification", () => {
     it("has unicode SKUs", async () => {
       const pool = getPool("sandbox_dev2");
       const result = await pool.query(
-        "SELECT COUNT(*)::int AS cnt FROM products WHERE code ~ '[^\\x00-\\x7F]'"
+        "SELECT COUNT(*)::int AS cnt FROM products WHERE code ~ '[^\\x00-\\x7F]'",
       );
       expect(result.rows[0].cnt).toBeGreaterThan(0);
     });
@@ -112,7 +119,7 @@ describe("Sandbox verification", () => {
     it("has zero-price products", async () => {
       const pool = getPool("sandbox_dev2");
       const result = await pool.query(
-        "SELECT COUNT(*)::int AS cnt FROM products WHERE price = 0"
+        "SELECT COUNT(*)::int AS cnt FROM products WHERE price = 0",
       );
       expect(result.rows[0].cnt).toBeGreaterThan(0);
     });
@@ -120,7 +127,7 @@ describe("Sandbox verification", () => {
     it("has NULL expected/actual values in data_checks", async () => {
       const pool = getPool("sandbox_dev2");
       const result = await pool.query(
-        "SELECT COUNT(*)::int AS cnt FROM data_checks WHERE expected_value IS NULL OR actual_value IS NULL"
+        "SELECT COUNT(*)::int AS cnt FROM data_checks WHERE expected_value IS NULL OR actual_value IS NULL",
       );
       expect(result.rows[0].cnt).toBeGreaterThan(0);
     });
@@ -128,7 +135,7 @@ describe("Sandbox verification", () => {
     it("has inactive categories", async () => {
       const pool = getPool("sandbox_dev2");
       const result = await pool.query(
-        "SELECT COUNT(*)::int AS cnt FROM categories WHERE is_active = false"
+        "SELECT COUNT(*)::int AS cnt FROM categories WHERE is_active = false",
       );
       expect(result.rows[0].cnt).toBeGreaterThan(0);
     });
