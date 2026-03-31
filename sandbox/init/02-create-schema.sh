@@ -43,3 +43,14 @@ for DB in sandbox_dev sandbox_stage sandbox_prod sandbox_dev2; do
 EOSQL
   echo "Schema created for $DB"
 done
+
+# Grant toad_reader SELECT on stage/prod tables
+# This runs after schema creation so all tables exist
+for DB in sandbox_stage sandbox_prod; do
+  psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$DB" <<-EOSQL
+    GRANT USAGE ON SCHEMA public TO toad_reader;
+    GRANT SELECT ON ALL TABLES IN SCHEMA public TO toad_reader;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO toad_reader;
+EOSQL
+  echo "Read-only grants applied for $DB"
+done
