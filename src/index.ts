@@ -2,18 +2,26 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig } from "./config/loader.js";
 import { ConnectionManager } from "./router/connection-manager.js";
+import { SchemaCache } from "./schema/cache.js";
 import { registerExecuteQuery } from "./tools/execute-query.js";
+import { registerListNodes } from "./tools/list-nodes.js";
+import { registerGetOverview } from "./tools/get-overview.js";
+import { registerDescribeColumns } from "./tools/describe-columns.js";
 
 const CONFIG_PATH = process.env["TOAD_CONFIG"] ?? "config/toad-tunnel.yaml";
 
 const config = loadConfig(CONFIG_PATH);
 const connectionManager = new ConnectionManager(config);
+const schemaCache = new SchemaCache();
 
 const server = new McpServer({
   name: "toad-tunnel-mcp",
   version: "0.1.0",
 });
 
+registerListNodes(server, connectionManager);
+registerGetOverview(server, connectionManager, schemaCache);
+registerDescribeColumns(server, connectionManager, schemaCache);
 registerExecuteQuery(server, connectionManager);
 
 process.on("SIGINT", async () => {
