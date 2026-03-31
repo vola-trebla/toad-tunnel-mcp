@@ -57,6 +57,15 @@ export class ConnectionManager {
     return this.pools.get(env)!;
   }
 
+  /** Called by TunnelProvider.onReconnect to force pool recreation on next getPool() */
+  invalidatePool(env: string): void {
+    const pool = this.pools.get(env);
+    if (pool) {
+      void pool.end().catch(() => {});
+      this.pools.delete(env);
+    }
+  }
+
   getEnvNames(): string[] {
     return Object.keys(this.config.environments);
   }
