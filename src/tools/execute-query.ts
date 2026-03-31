@@ -1,6 +1,7 @@
 import * as z from "zod/v4";
 import { type McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { type ConnectionManager } from "../router/connection-manager.js";
+import { type QueryValidator } from "../safety/query-validator.js";
 import { executeQuery } from "../router/query-executor.js";
 import { toolError } from "../utils/tool-result.js";
 import { envEnum } from "../utils/env-enum.js";
@@ -8,6 +9,7 @@ import { envEnum } from "../utils/env-enum.js";
 export function registerExecuteQuery(
   server: McpServer,
   connectionManager: ConnectionManager,
+  validator?: QueryValidator,
 ): void {
   const envNames = connectionManager.getEnvNames();
 
@@ -25,13 +27,27 @@ export function registerExecuteQuery(
     },
     async ({ env, sql }) => {
       try {
-        const result = await executeQuery(connectionManager, env, sql);
-        const text =
-          result.rowCount === 0
-            ? "(no rows)"
-            : result.rows.map((row) => JSON.stringify(row)).join("\n");
+        const result = await executeQuery(
+          connectionManager,
+          env,
+          sql,
+          validator,
+        );
 
-        return { content: [{ type: "text", text }] };
+        if (result.rowCount === 0 && !result.truncated) {
+          return { content: [{ type: "text", text: "(no rows)" }] };
+        }
+
+        const lines = result.rows.map((row) => JSON.stringify(row));
+
+        if (result.truncated) {
+          lines.push(
+            `\n[${result.rowCount}+ rows — showing first ${result.rowCount}. ` +
+              `Add LIMIT or WHERE to narrow results.]`,
+          );
+        }
+
+        return { content: [{ type: "text", text: lines.join("\n") }] };
       } catch (err) {
         return toolError(err);
       }
