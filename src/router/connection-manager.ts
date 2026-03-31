@@ -6,7 +6,8 @@ import type { TunnelProvider, TunnelConfig } from "../tunnel/types.js";
 const { Pool } = pg;
 
 export class ConnectionManager {
-  private readonly pools: Map<string, pg.Pool> = new Map();
+  // Stores in-flight promises so concurrent getPool() calls share the same connection attempt
+  private readonly pools: Map<string, Promise<pg.Pool>> = new Map();
 
   constructor(
     private readonly config: Config,
@@ -20,48 +21,55 @@ export class ConnectionManager {
     }
 
     if (!this.pools.has(env)) {
-      // Open SSH tunnel lazily if this env requires one
-      let host = envConfig.host;
-      let port = envConfig.port;
-
-      if (envConfig.tunnel && this.tunnelProvider) {
-        const tunnelConfig = this.buildTunnelConfig(env, envConfig);
-        const tunnel = await this.tunnelProvider.connect(env, tunnelConfig);
-        host = "127.0.0.1";
-        port = tunnel.local_port;
-      }
-
-      const pool = new Pool({
-        host,
-        port,
-        database: envConfig.database,
-        user: envConfig.user,
-        password: envConfig.password,
-        max: 5,
-        idleTimeoutMillis: 30_000,
-        connectionTimeoutMillis: 5_000,
-      });
-
-      // Fail fast: verify connection on first pool creation
-      try {
-        const client = await pool.connect();
-        client.release();
-      } catch (err) {
-        await pool.end().catch(() => {});
-        throw new ConnectionError(env, err);
-      }
-
-      this.pools.set(env, pool);
+      this.pools.set(env, this._createPool(env, envConfig));
     }
 
     return this.pools.get(env)!;
   }
 
+  private async _createPool(
+    env: string,
+    envConfig: EnvConfig,
+  ): Promise<pg.Pool> {
+    let host = envConfig.host;
+    let port = envConfig.port;
+
+    if (envConfig.tunnel && this.tunnelProvider) {
+      const tunnelConfig = this.buildTunnelConfig(env, envConfig);
+      const tunnel = await this.tunnelProvider.connect(env, tunnelConfig);
+      host = "127.0.0.1";
+      port = tunnel.local_port;
+    }
+
+    const pool = new Pool({
+      host,
+      port,
+      database: envConfig.database,
+      user: envConfig.user,
+      password: envConfig.password,
+      max: 5,
+      idleTimeoutMillis: 30_000,
+      connectionTimeoutMillis: 5_000,
+    });
+
+    // Fail fast: verify connection on first pool creation
+    try {
+      const client = await pool.connect();
+      client.release();
+    } catch (err) {
+      await pool.end().catch(() => {});
+      this.pools.delete(env); // remove failed promise so next call retries
+      throw new ConnectionError(env, err);
+    }
+
+    return pool;
+  }
+
   /** Called by TunnelProvider.onReconnect to force pool recreation on next getPool() */
   invalidatePool(env: string): void {
-    const pool = this.pools.get(env);
-    if (pool) {
-      void pool.end().catch(() => {});
+    const poolPromise = this.pools.get(env);
+    if (poolPromise) {
+      void poolPromise.then((pool) => pool.end()).catch(() => {});
       this.pools.delete(env);
     }
   }
@@ -77,8 +85,11 @@ export class ConnectionManager {
   }
 
   async shutdown(): Promise<void> {
-    await Promise.all([...this.pools.values()].map((pool) => pool.end()));
+    const poolPromises = [...this.pools.values()];
     this.pools.clear();
+    await Promise.all(
+      poolPromises.map((p) => p.then((pool) => pool.end()).catch(() => {})),
+    );
     await this.tunnelProvider?.disconnectAll();
   }
 

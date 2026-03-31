@@ -25,9 +25,9 @@ interface ActiveTunnel {
   tunnel: Tunnel;
   conn: Client;
   server: net.Server;
+  sockets: Set<net.Socket>;
   config: TunnelConfig;
   intentionalClose: boolean;
-  retryCount: number;
 }
 
 export class Ssh2TunnelProvider implements TunnelProvider {
@@ -79,7 +79,12 @@ export class Ssh2TunnelProvider implements TunnelProvider {
 
       conn
         .on("ready", () => {
+          const sockets = new Set<net.Socket>();
+
           const server = net.createServer((socket) => {
+            sockets.add(socket);
+            socket.on("close", () => sockets.delete(socket));
+
             this.idle.touch(env);
             const active = this.active.get(env);
             if (active) active.tunnel.last_query_at = new Date();
@@ -113,9 +118,9 @@ export class Ssh2TunnelProvider implements TunnelProvider {
               tunnel,
               conn,
               server,
+              sockets,
               config,
               intentionalClose: false,
-              retryCount: 0,
             };
             this.active.set(env, record);
             this.usedPorts.add(config.local_port);
@@ -140,7 +145,9 @@ export class Ssh2TunnelProvider implements TunnelProvider {
         .on("close", () => {
           const record = this.active.get(env);
           if (record && !record.intentionalClose) {
-            void this._scheduleReconnect(env, record);
+            // Pass config and start retry count from 0; retryCount is a local
+            // counter passed through the recursion — not stored on the record
+            void this._scheduleReconnect(env, record.config, 0);
           }
         })
         .connect({
@@ -156,48 +163,52 @@ export class Ssh2TunnelProvider implements TunnelProvider {
     });
   }
 
+  // retryCount is passed explicitly so delete+recreate of the active record
+  // never loses the count (fixes: active.delete before stale read)
   private async _scheduleReconnect(
     env: string,
-    record: ActiveTunnel,
+    config: TunnelConfig,
+    retryCount: number,
   ): Promise<void> {
-    if (record.retryCount >= this.opts.max_retries) {
-      record.tunnel.status = "disconnected";
+    if (retryCount >= this.opts.max_retries) {
+      const record = this.active.get(env);
+      if (record) record.tunnel.status = "disconnected";
       this.idle.stop(env);
       this.opts.onGiveUp?.(env);
       this.active.delete(env);
+      this.usedPorts.delete(config.local_port);
       return;
     }
 
-    record.tunnel.status = "connecting";
-    record.retryCount += 1;
-    const delay = this.opts.retry_delay_ms * Math.pow(2, record.retryCount - 1);
+    const record = this.active.get(env);
+    if (record) record.tunnel.status = "connecting";
 
+    const delay = this.opts.retry_delay_ms * Math.pow(2, retryCount);
     await new Promise<void>((r) => setTimeout(r, delay));
 
-    // Close the old net.Server before reopening
-    await new Promise<void>((resolve) => {
-      record.server.close(() => resolve());
-    });
-
+    // Force-close sockets and server before reopening
+    await this._closeServerForEnv(env);
     this.active.delete(env);
 
     try {
-      await this._openConnection(env, record.config);
-      const reconnected = this.active.get(env);
-      if (reconnected) reconnected.retryCount = 0;
+      await this._openConnection(env, config);
       this.onReconnect?.(env);
     } catch {
-      // _openConnection already set status; _scheduleReconnect will be called
-      // again via the 'close' event on the new conn if it connects and then drops.
-      // If it never connects, reject() is called and we give up here.
-      const stale = this.active.get(env);
-      if (stale && stale.retryCount < this.opts.max_retries) {
-        void this._scheduleReconnect(env, stale);
-      } else {
-        this.opts.onGiveUp?.(env);
-        this.active.delete(env);
-      }
+      void this._scheduleReconnect(env, config, retryCount + 1);
     }
+  }
+
+  private async _closeServerForEnv(env: string): Promise<void> {
+    const record = this.active.get(env);
+    if (!record) return;
+    // Destroy all open sockets so server.close() resolves immediately
+    for (const socket of record.sockets) {
+      socket.destroy();
+    }
+    record.sockets.clear();
+    await new Promise<void>((resolve) => {
+      record.server.close(() => resolve());
+    });
   }
 
   async disconnect(env: string): Promise<void> {
@@ -206,6 +217,12 @@ export class Ssh2TunnelProvider implements TunnelProvider {
 
     active.intentionalClose = true;
     this.idle.stop(env);
+
+    // Destroy sockets first so server.close() resolves without waiting for idle timeout
+    for (const socket of active.sockets) {
+      socket.destroy();
+    }
+    active.sockets.clear();
 
     await new Promise<void>((resolve) => {
       active.server.close(() => {
