@@ -1,5 +1,12 @@
 # toad-tunnel-mcp
 
+[![npm version](https://img.shields.io/npm/v/toad-tunnel-mcp)](https://www.npmjs.com/package/toad-tunnel-mcp)
+[![npm downloads](https://img.shields.io/npm/dm/toad-tunnel-mcp)](https://www.npmjs.com/package/toad-tunnel-mcp)
+[![CI](https://github.com/vola-trebla/toad-tunnel-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/vola-trebla/toad-tunnel-mcp/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-supported-blue?logo=postgresql&logoColor=white)](https://www.postgresql.org)
+
 Multi-environment PostgreSQL MCP router with SSH tunnel management.
 
 One MCP server, all your environments, auto-managed SSH tunnels.
