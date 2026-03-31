@@ -124,9 +124,7 @@ registerDescribeColumns(server, connectionManager, schemaCache);
 const validator = new QueryValidator(config.safety);
 const auditLogger = new AuditLogger(config.safety?.audit_log_file);
 registerExecuteQuery(server, connectionManager, validator, auditLogger);
-if (tunnelProvider) {
-  registerTunnelStatus(server, connectionManager, tunnelProvider);
-}
+registerTunnelStatus(server, connectionManager, tunnelProvider);
 
 process.on("SIGINT", async () => {
   await connectionManager.shutdown();

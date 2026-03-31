@@ -32,6 +32,7 @@ interface ActiveTunnel {
 
 export class Ssh2TunnelProvider implements TunnelProvider {
   private readonly active = new Map<string, ActiveTunnel>();
+  private readonly inflight = new Map<string, Promise<Tunnel>>();
   private readonly usedPorts = new Set<number>();
   private readonly opts: TunnelLifecycleOptions;
   private readonly idle: IdleTracker;
@@ -52,6 +53,10 @@ export class Ssh2TunnelProvider implements TunnelProvider {
       return existing.tunnel;
     }
 
+    // Coalesce concurrent connect calls for the same env
+    const pending = this.inflight.get(env);
+    if (pending) return pending;
+
     // Validate local_port uniqueness across active tunnels
     if (this.usedPorts.has(config.local_port)) {
       throw new TunnelError(
@@ -60,7 +65,11 @@ export class Ssh2TunnelProvider implements TunnelProvider {
       );
     }
 
-    return this._openConnection(env, config);
+    const promise = this._openConnection(env, config).finally(() => {
+      this.inflight.delete(env);
+    });
+    this.inflight.set(env, promise);
+    return promise;
   }
 
   private _openConnection(env: string, config: TunnelConfig): Promise<Tunnel> {
@@ -188,9 +197,10 @@ export class Ssh2TunnelProvider implements TunnelProvider {
 
     // Force-close sockets and server before reopening
     await this._closeServerForEnv(env);
-    this.active.delete(env);
 
     try {
+      // Delete stale record only after cleanup, right before opening new one
+      this.active.delete(env);
       await this._openConnection(env, config);
       this.onReconnect?.(env);
     } catch {
