@@ -1,3 +1,7 @@
+#!/usr/bin/env node
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig } from "./config/loader.js";
@@ -12,7 +16,85 @@ import { registerTunnelStatus } from "./tools/tunnel-status.js";
 import { QueryValidator } from "./safety/query-validator.js";
 import { AuditLogger } from "./audit/logger.js";
 
-const CONFIG_PATH = process.env["TOAD_CONFIG"] ?? "config/toad-tunnel.yaml";
+// ---------------------------------------------------------------------------
+// CLI argument handling
+// ---------------------------------------------------------------------------
+
+function getVersion(): string {
+  try {
+    const pkgPath = join(
+      dirname(fileURLToPath(import.meta.url)),
+      "..",
+      "package.json",
+    );
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
+      version: string;
+    };
+    return pkg.version;
+  } catch {
+    return "0.0.0";
+  }
+}
+
+function getConfigPath(argv: string[]): string {
+  const idx = argv.indexOf("--config");
+  if (idx !== -1 && argv[idx + 1]) return argv[idx + 1]!;
+  return process.env["TOAD_CONFIG"] ?? "config/toad-tunnel.yaml";
+}
+
+const cliArgs = process.argv.slice(2);
+
+if (cliArgs.includes("--version") || cliArgs.includes("-v")) {
+  console.log(`toad-tunnel-mcp v${getVersion()}`);
+  process.exit(0);
+}
+
+if (cliArgs.includes("--help") || cliArgs.includes("-h")) {
+  console.log(`toad-tunnel-mcp v${getVersion()}
+Multi-environment PostgreSQL MCP router with SSH tunnel management.
+
+Usage:
+  toad-tunnel-mcp [--config <path>]            Start MCP server (stdio transport)
+  toad-tunnel-mcp validate [--config <path>]   Validate config and exit
+  toad-tunnel-mcp --version                    Print version and exit
+  toad-tunnel-mcp --help                       Print this help
+
+Options:
+  --config <path>   Config file path (default: config/toad-tunnel.yaml)
+                    Can also be set via TOAD_CONFIG environment variable
+
+Config format: YAML. See config/toad-tunnel.example.yaml for a full example.`);
+  process.exit(0);
+}
+
+if (cliArgs[0] === "validate") {
+  const configPath = getConfigPath(cliArgs.slice(1));
+  try {
+    const config = loadConfig(configPath);
+    const envNames = Object.keys(config.environments);
+    console.log(
+      `\u2713 Config valid \u2014 ${envNames.length} environment${envNames.length !== 1 ? "s" : ""}: ${envNames.join(", ")}`,
+    );
+    for (const [name, env] of Object.entries(config.environments)) {
+      const tunnel = env.tunnel ? "tunnel" : "direct";
+      console.log(
+        `  ${name.padEnd(12)} ${env.permissions.padEnd(12)} approval:${env.approval}  ${tunnel}`,
+      );
+    }
+    process.exit(0);
+  } catch (err) {
+    console.error(
+      `\u2717 Config invalid: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    process.exit(1);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// MCP server startup
+// ---------------------------------------------------------------------------
+
+const CONFIG_PATH = getConfigPath(cliArgs);
 
 const config = loadConfig(CONFIG_PATH);
 
@@ -31,7 +113,7 @@ const schemaCache = new SchemaCache();
 
 const server = new McpServer({
   name: "toad-tunnel-mcp",
-  version: "0.1.0",
+  version: getVersion(),
 });
 
 registerListNodes(server, connectionManager);

@@ -1,0 +1,71 @@
+# toad-tunnel-mcp — example configuration
+# Copy to config/toad-tunnel.yaml and adjust for your setup.
+# Full reference: https://github.com/vola-trebla/toad-tunnel-mcp#configuration
+
+project: my-project
+
+environments:
+  # Development — direct connection, full read-write, no approval required
+  dev:
+    host: localhost
+    port: 5432
+    database: myapp_dev
+    user: myapp
+    password: secret
+    permissions: read-write
+    approval: auto
+
+  # Staging — direct connection, read-only role, auto-approved
+  stage:
+    host: stage-db.internal
+    port: 5432
+    database: myapp_stage
+    user: myapp_reader
+    password: secret
+    permissions: read-only
+    approval: auto
+
+  # Production — SSH tunnel, read-only role, human approval required
+  prod:
+    host: prod-db.internal # host as seen from the bastion
+    port: 5432
+    database: myapp_prod
+    user: myapp_reader
+    password: secret
+    permissions: read-only
+    approval: hitl # requires human confirmation before each query
+    tunnel:
+      bastion: bastion.example.com
+      bastion_port: 22
+      username: deploy
+      key_path: /home/deploy/.ssh/id_rsa
+      # passphrase: optional — only if key is encrypted
+      local_port: 15432 # local port the tunnel binds to
+      remote_host: prod-db.internal
+      remote_port: 5432
+
+# Optional: SSH tunnel global options
+tunnel_options:
+  idle_timeout_ms: 300000 # close idle tunnel after 5 minutes
+  keepalive_interval_ms: 30000 # SSH keepalive every 30 seconds
+  max_retries: 3 # reconnect attempts before giving up
+  retry_delay_ms: 2000 # wait 2 seconds between retries
+
+# Safety layer configuration
+safety:
+  # Keywords that are blocked for read-only environments.
+  # The primary defence is the PostgreSQL read-only role — this is a fast-fail
+  # layer that provides a clear error message before the query reaches the DB.
+  blocked_keywords:
+    - DROP
+    - DELETE
+    - ALTER
+    - TRUNCATE
+    - GRANT
+    - REVOKE
+    - CREATE
+    - UPDATE
+    - INSERT
+  max_rows: 100 # maximum rows returned per query
+  hitl_timeout_ms: 60000 # HITL approval timeout in milliseconds
+  # audit_log_file: /var/log/toad-tunnel.log   # omit to write to stderr

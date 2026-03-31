@@ -1,0 +1,20 @@
+# Source and development files
+src/
+sandbox/
+.planning/
+.github/
+.husky/
+
+# Config (only example ships)
+config/toad-tunnel.yaml
+
+# Test output in dist
+dist/**/*.test.js
+dist/**/*.test.js.map
+dist/**/*.test.d.ts
+dist/**/*.test.d.ts.map
+
+# Dev tooling
+.prettierrc*
+tsconfig.json
+vitest.config.*
