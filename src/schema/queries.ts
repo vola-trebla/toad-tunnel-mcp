@@ -20,7 +20,7 @@ export async function queryTables(pool: pg.Pool): Promise<TableOverview[]> {
     SELECT
       n.nspname AS schema,
       c.relname AS table,
-      GREATEST(c.reltuples::bigint, 0) AS estimated_rows
+      GREATEST(c.reltuples::int, 0) AS estimated_rows
     FROM pg_class c
     JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE c.relkind = 'r'
