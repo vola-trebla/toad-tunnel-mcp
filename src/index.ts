@@ -14,13 +14,16 @@ const CONFIG_PATH = process.env["TOAD_CONFIG"] ?? "config/toad-tunnel.yaml";
 
 const config = loadConfig(CONFIG_PATH);
 
-// Wire onReconnect callback: tunnelProvider notifies manager to drop stale pool
-let connectionManager: ConnectionManager;
-const tunnelProvider = new Ssh2TunnelProvider({
-  ...config.tunnels,
-  onReconnect: (env) => connectionManager.invalidatePool(env),
-});
-connectionManager = new ConnectionManager(config, tunnelProvider);
+const hasTunnels = Object.values(config.environments).some((e) => e.tunnel);
+const tunnelProvider = hasTunnels
+  ? new Ssh2TunnelProvider(config.tunnel_options)
+  : undefined;
+const connectionManager = new ConnectionManager(config, tunnelProvider);
+
+// Wire onReconnect: tunnel provider notifies manager to drop stale pool
+if (tunnelProvider) {
+  tunnelProvider.onReconnect = (env) => connectionManager.invalidatePool(env);
+}
 
 const schemaCache = new SchemaCache();
 
@@ -33,7 +36,9 @@ registerListNodes(server, connectionManager);
 registerGetOverview(server, connectionManager, schemaCache);
 registerDescribeColumns(server, connectionManager, schemaCache);
 registerExecuteQuery(server, connectionManager);
-registerTunnelStatus(server, connectionManager, tunnelProvider);
+if (tunnelProvider) {
+  registerTunnelStatus(server, connectionManager, tunnelProvider);
+}
 
 process.on("SIGINT", async () => {
   await connectionManager.shutdown();

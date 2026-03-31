@@ -32,8 +32,12 @@ interface ActiveTunnel {
 
 export class Ssh2TunnelProvider implements TunnelProvider {
   private readonly active = new Map<string, ActiveTunnel>();
+  private readonly usedPorts = new Set<number>();
   private readonly opts: TunnelLifecycleOptions;
   private readonly idle: IdleTracker;
+
+  /** Set externally after construction to avoid circular references */
+  onReconnect?: (env: string) => void;
 
   constructor(opts: Partial<TunnelLifecycleOptions> = {}) {
     this.opts = { ...DEFAULT_LIFECYCLE, ...opts };
@@ -46,6 +50,14 @@ export class Ssh2TunnelProvider implements TunnelProvider {
     const existing = this.active.get(env);
     if (existing && existing.tunnel.status === "active") {
       return existing.tunnel;
+    }
+
+    // Validate local_port uniqueness across active tunnels
+    if (this.usedPorts.has(config.local_port)) {
+      throw new TunnelError(
+        env,
+        `local_port ${config.local_port} is already in use by another tunnel`,
+      );
     }
 
     return this._openConnection(env, config);
@@ -106,6 +118,7 @@ export class Ssh2TunnelProvider implements TunnelProvider {
               retryCount: 0,
             };
             this.active.set(env, record);
+            this.usedPorts.add(config.local_port);
             this.idle.start(env);
             resolve(tunnel);
           });
@@ -172,7 +185,7 @@ export class Ssh2TunnelProvider implements TunnelProvider {
       await this._openConnection(env, record.config);
       const reconnected = this.active.get(env);
       if (reconnected) reconnected.retryCount = 0;
-      this.opts.onReconnect?.(env);
+      this.onReconnect?.(env);
     } catch {
       // _openConnection already set status; _scheduleReconnect will be called
       // again via the 'close' event on the new conn if it connects and then drops.
@@ -201,6 +214,7 @@ export class Ssh2TunnelProvider implements TunnelProvider {
       });
     });
 
+    this.usedPorts.delete(active.config.local_port);
     this.active.delete(env);
   }
 

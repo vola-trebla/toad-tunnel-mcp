@@ -7,8 +7,6 @@ export interface TunnelLifecycleOptions {
   max_retries: number;
   /** Base delay for exponential backoff in ms (default 2s) */
   retry_delay_ms: number;
-  /** Called after a tunnel successfully reconnects */
-  onReconnect?: (env: string) => void;
   /** Called when all reconnect retries are exhausted */
   onGiveUp?: (env: string) => void;
 }
@@ -22,11 +20,12 @@ export const DEFAULT_LIFECYCLE: TunnelLifecycleOptions = {
 
 /**
  * Tracks last-activity time per env and fires onIdle when idle_timeout_ms elapses.
+ * Uses setTimeout with remaining-time recalculation for precise idle detection.
  * Decoupled from SSH logic so it can be tested with fake timers.
  */
 export class IdleTracker {
   private readonly lastActivity = new Map<string, number>();
-  private readonly timers = new Map<string, ReturnType<typeof setInterval>>();
+  private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(
     private readonly idleTimeoutMs: number,
@@ -36,16 +35,7 @@ export class IdleTracker {
   start(env: string): void {
     this.touch(env);
     if (this.timers.has(env)) return;
-
-    const timer = setInterval(() => {
-      const last = this.lastActivity.get(env) ?? Date.now();
-      if (Date.now() - last >= this.idleTimeoutMs) {
-        this.stop(env);
-        this.onIdle(env);
-      }
-    }, this.idleTimeoutMs);
-
-    this.timers.set(env, timer);
+    this._scheduleCheck(env);
   }
 
   touch(env: string): void {
@@ -55,7 +45,7 @@ export class IdleTracker {
   stop(env: string): void {
     const timer = this.timers.get(env);
     if (timer) {
-      clearInterval(timer);
+      clearTimeout(timer);
       this.timers.delete(env);
     }
     this.lastActivity.delete(env);
@@ -65,5 +55,26 @@ export class IdleTracker {
     for (const env of [...this.timers.keys()]) {
       this.stop(env);
     }
+  }
+
+  private _scheduleCheck(env: string): void {
+    const last = this.lastActivity.get(env) ?? Date.now();
+    const remaining = this.idleTimeoutMs - (Date.now() - last);
+
+    const timer = setTimeout(
+      () => {
+        const elapsed = Date.now() - (this.lastActivity.get(env) ?? 0);
+        if (elapsed >= this.idleTimeoutMs) {
+          this.stop(env);
+          this.onIdle(env);
+        } else {
+          this._scheduleCheck(env);
+        }
+      },
+      Math.max(remaining, 100),
+    );
+    timer.unref();
+
+    this.timers.set(env, timer);
   }
 }
