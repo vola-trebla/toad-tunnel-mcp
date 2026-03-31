@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig } from "./config/loader.js";
 import { ConnectionManager } from "./router/connection-manager.js";
+import { Ssh2TunnelProvider } from "./tunnel/ssh2-provider.js";
 import { SchemaCache } from "./schema/cache.js";
 import { registerExecuteQuery } from "./tools/execute-query.js";
 import { registerListNodes } from "./tools/list-nodes.js";
@@ -11,7 +12,15 @@ import { registerDescribeColumns } from "./tools/describe-columns.js";
 const CONFIG_PATH = process.env["TOAD_CONFIG"] ?? "config/toad-tunnel.yaml";
 
 const config = loadConfig(CONFIG_PATH);
-const connectionManager = new ConnectionManager(config);
+
+// Wire onReconnect callback: tunnelProvider notifies manager to drop stale pool
+let connectionManager: ConnectionManager;
+const tunnelProvider = new Ssh2TunnelProvider({
+  ...config.tunnels,
+  onReconnect: (env) => connectionManager.invalidatePool(env),
+});
+connectionManager = new ConnectionManager(config, tunnelProvider);
+
 const schemaCache = new SchemaCache();
 
 const server = new McpServer({

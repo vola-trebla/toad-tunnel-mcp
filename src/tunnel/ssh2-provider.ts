@@ -3,6 +3,11 @@ import { readFileSync } from "fs";
 import { homedir } from "os";
 import { Client } from "ssh2";
 import type { TunnelProvider, TunnelConfig, Tunnel } from "./types.js";
+import {
+  IdleTracker,
+  DEFAULT_LIFECYCLE,
+  type TunnelLifecycleOptions,
+} from "./lifecycle.js";
 import { ToadError } from "../utils/errors.js";
 
 export class TunnelError extends ToadError {
@@ -20,10 +25,22 @@ interface ActiveTunnel {
   tunnel: Tunnel;
   conn: Client;
   server: net.Server;
+  config: TunnelConfig;
+  intentionalClose: boolean;
+  retryCount: number;
 }
 
 export class Ssh2TunnelProvider implements TunnelProvider {
   private readonly active = new Map<string, ActiveTunnel>();
+  private readonly opts: TunnelLifecycleOptions;
+  private readonly idle: IdleTracker;
+
+  constructor(opts: Partial<TunnelLifecycleOptions> = {}) {
+    this.opts = { ...DEFAULT_LIFECYCLE, ...opts };
+    this.idle = new IdleTracker(this.opts.idle_timeout_ms, (env) => {
+      void this.disconnect(env);
+    });
+  }
 
   async connect(env: string, config: TunnelConfig): Promise<Tunnel> {
     const existing = this.active.get(env);
@@ -31,6 +48,10 @@ export class Ssh2TunnelProvider implements TunnelProvider {
       return existing.tunnel;
     }
 
+    return this._openConnection(env, config);
+  }
+
+  private _openConnection(env: string, config: TunnelConfig): Promise<Tunnel> {
     return new Promise<Tunnel>((resolve, reject) => {
       const conn = new Client();
 
@@ -47,6 +68,10 @@ export class Ssh2TunnelProvider implements TunnelProvider {
       conn
         .on("ready", () => {
           const server = net.createServer((socket) => {
+            this.idle.touch(env);
+            const active = this.active.get(env);
+            if (active) active.tunnel.last_query_at = new Date();
+
             conn.forwardOut(
               "127.0.0.1",
               0,
@@ -72,7 +97,16 @@ export class Ssh2TunnelProvider implements TunnelProvider {
               connected_at: new Date(),
               last_query_at: new Date(),
             };
-            this.active.set(env, { tunnel, conn, server });
+            const record: ActiveTunnel = {
+              tunnel,
+              conn,
+              server,
+              config,
+              intentionalClose: false,
+              retryCount: 0,
+            };
+            this.active.set(env, record);
+            this.idle.start(env);
             resolve(tunnel);
           });
 
@@ -90,6 +124,12 @@ export class Ssh2TunnelProvider implements TunnelProvider {
         .on("error", (err) => {
           reject(new TunnelError(env, "SSH connection error", err));
         })
+        .on("close", () => {
+          const record = this.active.get(env);
+          if (record && !record.intentionalClose) {
+            void this._scheduleReconnect(env, record);
+          }
+        })
         .connect({
           host: config.bastion,
           port: config.bastion_port,
@@ -97,13 +137,62 @@ export class Ssh2TunnelProvider implements TunnelProvider {
           privateKey,
           passphrase: config.passphrase,
           readyTimeout: 10_000,
+          keepaliveInterval: this.opts.keepalive_interval_ms,
+          keepaliveCountMax: 3,
         });
     });
+  }
+
+  private async _scheduleReconnect(
+    env: string,
+    record: ActiveTunnel,
+  ): Promise<void> {
+    if (record.retryCount >= this.opts.max_retries) {
+      record.tunnel.status = "disconnected";
+      this.idle.stop(env);
+      this.opts.onGiveUp?.(env);
+      this.active.delete(env);
+      return;
+    }
+
+    record.tunnel.status = "connecting";
+    record.retryCount += 1;
+    const delay = this.opts.retry_delay_ms * Math.pow(2, record.retryCount - 1);
+
+    await new Promise<void>((r) => setTimeout(r, delay));
+
+    // Close the old net.Server before reopening
+    await new Promise<void>((resolve) => {
+      record.server.close(() => resolve());
+    });
+
+    this.active.delete(env);
+
+    try {
+      await this._openConnection(env, record.config);
+      const reconnected = this.active.get(env);
+      if (reconnected) reconnected.retryCount = 0;
+      this.opts.onReconnect?.(env);
+    } catch {
+      // _openConnection already set status; _scheduleReconnect will be called
+      // again via the 'close' event on the new conn if it connects and then drops.
+      // If it never connects, reject() is called and we give up here.
+      const stale = this.active.get(env);
+      if (stale && stale.retryCount < this.opts.max_retries) {
+        void this._scheduleReconnect(env, stale);
+      } else {
+        this.opts.onGiveUp?.(env);
+        this.active.delete(env);
+      }
+    }
   }
 
   async disconnect(env: string): Promise<void> {
     const active = this.active.get(env);
     if (!active) return;
+
+    active.intentionalClose = true;
+    this.idle.stop(env);
 
     await new Promise<void>((resolve) => {
       active.server.close(() => {
@@ -120,6 +209,7 @@ export class Ssh2TunnelProvider implements TunnelProvider {
   }
 
   async disconnectAll(): Promise<void> {
+    this.idle.stopAll();
     await Promise.all(
       [...this.active.keys()].map((env) => this.disconnect(env)),
     );

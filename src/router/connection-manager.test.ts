@@ -169,4 +169,32 @@ describe("ConnectionManager with TunnelProvider", () => {
     await manager.shutdown();
     expect(provider.getStatus("tunneled")).toBeNull();
   });
+
+  it("invalidatePool removes the cached pool", async () => {
+    const provider = new MockTunnelProvider();
+    const manager = new ConnectionManager(tunnelConfig, provider);
+    const pool1 = await manager.getPool("tunneled");
+    manager.invalidatePool("tunneled");
+    // @ts-expect-error accessing private for test
+    expect(manager.pools.has("tunneled")).toBe(false);
+    const pool2 = await manager.getPool("tunneled");
+    expect(pool2).not.toBe(pool1);
+    await manager.shutdown();
+  });
+
+  it("onReconnect callback invalidates and recreates pool", async () => {
+    let onReconnect: (env: string) => void = () => {};
+    const provider = new MockTunnelProvider();
+    const manager = new ConnectionManager(tunnelConfig, provider);
+    // Manually wire the callback (as index.ts would do)
+    onReconnect = (env) => manager.invalidatePool(env);
+
+    const pool1 = await manager.getPool("tunneled");
+    onReconnect("tunneled");
+    // @ts-expect-error accessing private for test
+    expect(manager.pools.has("tunneled")).toBe(false);
+    const pool2 = await manager.getPool("tunneled");
+    expect(pool2).not.toBe(pool1);
+    await manager.shutdown();
+  });
 });
