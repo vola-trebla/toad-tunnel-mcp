@@ -37,6 +37,7 @@ Multi-environment PostgreSQL MCP router with SSH tunnel management.
 ## Roadmap
 
 Tracked via GitHub Issues (#1–#6), one per phase:
+
 1. Phase 0: Sandbox Setup (#1)
 2. Phase 1: Core MCP Router (#2)
 3. Phase 2: Progressive Disclosure (#3)

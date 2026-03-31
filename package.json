@@ -17,9 +17,20 @@
     "sandbox:reset": "docker compose -f sandbox/docker-compose.yml down -v && docker compose -f sandbox/docker-compose.yml up -d",
     "sandbox:logs": "docker compose -f sandbox/docker-compose.yml logs -f",
     "sandbox:verify": "npm run sandbox:wait && vitest run sandbox/verify.test.ts",
-    "sandbox:wait": "until docker compose -f sandbox/docker-compose.yml exec -T postgres pg_isready -U toad -d postgres > /dev/null 2>&1; do sleep 1; done"
+    "sandbox:wait": "until docker compose -f sandbox/docker-compose.yml exec -T postgres pg_isready -U toad -d postgres > /dev/null 2>&1; do sleep 1; done",
+    "prepare": "husky",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
-  "keywords": ["mcp", "postgresql", "ssh-tunnel", "multi-env"],
+  "lint-staged": {
+    "*.{ts,json,md,yml,yaml}": "prettier --write"
+  },
+  "keywords": [
+    "mcp",
+    "postgresql",
+    "ssh-tunnel",
+    "multi-env"
+  ],
   "author": "vola-trebla",
   "license": "MIT",
   "dependencies": {
@@ -31,6 +42,9 @@
   "devDependencies": {
     "@types/node": "^25.5.0",
     "@types/pg": "^8.20.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.1",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2",
     "vitest": "^4.1.2"
