@@ -1,5 +1,5 @@
 import pg from "pg";
-import { type Config } from "../config/schema.js";
+import { type Config, type EnvConfig } from "../config/schema.js";
 import { ConnectionError, UnknownEnvError } from "../utils/errors.js";
 
 const { Pool } = pg;
@@ -44,6 +44,12 @@ export class ConnectionManager {
 
   getEnvNames(): string[] {
     return Object.keys(this.config.environments);
+  }
+
+  getEnvConfig(env: string): EnvConfig {
+    const envConfig = this.config.environments[env];
+    if (!envConfig) throw new UnknownEnvError(env);
+    return envConfig;
   }
 
   async shutdown(): Promise<void> {
