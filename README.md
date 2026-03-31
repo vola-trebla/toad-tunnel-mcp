@@ -38,8 +38,8 @@ environments:
     database: app_dev
     user: dev_user
     password: dev_secret
-    permissions: read-write       # read-write | read-only
-    approval: auto                # auto | hitl
+    permissions: read-write # read-write | read-only
+    approval: auto # auto | hitl
 
   prod:
     host: prod-db.internal
@@ -48,7 +48,7 @@ environments:
     user: prod_reader
     password: prod_secret
     permissions: read-only
-    approval: hitl                # requires human confirmation
+    approval: hitl # requires human confirmation
     tunnel:
       bastion: bastion.company.com
       username: deploy
@@ -66,13 +66,13 @@ Full config reference: see `config/toad-tunnel.yaml` and `src/config/schema.ts`.
 
 ## Tools
 
-| Tool | Description |
-|------|-------------|
-| `toad_tunnel__list_nodes` | Discover environments, permissions, approval mode |
-| `toad_tunnel__get_overview` | Tables + estimated row counts (cached 5min) |
-| `toad_tunnel__describe_columns` | Compact column schema for a table (cached 5min) |
-| `toad_tunnel__execute_query` | Run SQL with blocklist, HITL, row budget |
-| `toad_tunnel__tunnel_status` | SSH tunnel state per environment |
+| Tool                            | Description                                       |
+| ------------------------------- | ------------------------------------------------- |
+| `toad_tunnel__list_nodes`       | Discover environments, permissions, approval mode |
+| `toad_tunnel__get_overview`     | Tables + estimated row counts (cached 5min)       |
+| `toad_tunnel__describe_columns` | Compact column schema for a table (cached 5min)   |
+| `toad_tunnel__execute_query`    | Run SQL with blocklist, HITL, row budget          |
+| `toad_tunnel__tunnel_status`    | SSH tunnel state per environment                  |
 
 ## MCP Integration
 
