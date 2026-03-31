@@ -31,8 +31,6 @@
     "sandbox:down": "docker compose -f sandbox/docker-compose.yml down",
     "sandbox:reset": "docker compose -f sandbox/docker-compose.yml down -v && docker compose -f sandbox/docker-compose.yml up -d",
     "sandbox:logs": "docker compose -f sandbox/docker-compose.yml logs -f",
-    "sandbox:verify": "npm run sandbox:wait && vitest run sandbox/verify.test.ts src/router/pg-roles.test.ts",
-    "sandbox:wait": "until docker compose -f sandbox/docker-compose.yml exec -T postgres pg_isready -U toad -d postgres > /dev/null 2>&1; do sleep 1; done",
     "prepare": "husky",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
