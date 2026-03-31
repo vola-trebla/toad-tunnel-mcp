@@ -7,6 +7,7 @@ export default defineConfig({
       "**/node_modules/**",
       "**/dist/**",
       "src/router/pg-roles.test.ts",
+      "src/tunnel/e2e.test.ts",
     ],
   },
 });
