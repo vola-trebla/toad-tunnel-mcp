@@ -70,7 +70,8 @@ export class QueryValidator {
    */
   wrapWithBudget(sql: string): { sql: string; fetchLimit: number } | null {
     const normalized = this._normalize(sql);
-    if (!normalized.startsWith("SELECT")) return null;
+    if (!normalized.startsWith("SELECT") && !normalized.startsWith("WITH"))
+      return null;
 
     const fetchLimit = this.maxRows + 1;
     return {

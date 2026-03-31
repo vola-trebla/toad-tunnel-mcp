@@ -154,9 +154,6 @@ export function registerExecuteQuery(
 
         return { content: [{ type: "text", text: lines.join("\n") }] };
       } catch (err) {
-        if (err instanceof BlockedQueryError) {
-          audit("blocked", { reason: err.message });
-        }
         return toolError(err);
       }
     },
