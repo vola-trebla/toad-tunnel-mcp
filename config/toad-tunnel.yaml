@@ -1,0 +1,48 @@
+project: toad-tunnel-sandbox
+
+environments:
+  dev:
+    host: localhost
+    port: 5432
+    database: sandbox_dev
+    user: toad
+    password: toad_secret
+    permissions: read-write
+    approval: auto
+
+  stage:
+    host: localhost
+    port: 5432
+    database: sandbox_stage
+    user: toad
+    password: toad_secret
+    permissions: read-only
+    approval: auto
+
+  prod:
+    host: localhost
+    port: 5432
+    database: sandbox_prod
+    user: toad
+    password: toad_secret
+    permissions: read-only
+    approval: hitl
+
+  dev2:
+    host: localhost
+    port: 5432
+    database: sandbox_dev2
+    user: toad
+    password: toad_secret
+    permissions: read-write
+    approval: auto
+
+safety:
+  blocked_keywords:
+    - DROP
+    - DELETE
+    - ALTER
+    - TRUNCATE
+    - GRANT
+    - REVOKE
+  max_rows: 100
