@@ -14,7 +14,7 @@ environments:
     host: localhost
     port: 5432
     database: sandbox_stage
-    user: toad
+    user: toad_reader
     password: toad_secret
     permissions: read-only
     approval: auto
@@ -23,7 +23,7 @@ environments:
     host: localhost
     port: 5432
     database: sandbox_prod
-    user: toad
+    user: toad_reader
     password: toad_secret
     permissions: read-only
     approval: hitl
