@@ -3,6 +3,7 @@ export type ValidationResult = { ok: true } | { ok: false; reason: string };
 export interface SafetyOptions {
   blocked_keywords: string[];
   max_rows: number;
+  hitl_timeout_ms: number;
 }
 
 export const DEFAULT_BLOCKED_KEYWORDS = [
@@ -20,12 +21,14 @@ export const DEFAULT_BLOCKED_KEYWORDS = [
 export class QueryValidator {
   private readonly blockedUpper: string[];
   readonly maxRows: number;
+  readonly hitlTimeoutMs: number;
 
   constructor(opts: Partial<SafetyOptions> = {}) {
     this.blockedUpper = (opts.blocked_keywords ?? DEFAULT_BLOCKED_KEYWORDS).map(
       (k) => k.toUpperCase(),
     );
     this.maxRows = opts.max_rows ?? 100;
+    this.hitlTimeoutMs = opts.hitl_timeout_ms ?? 60_000;
   }
 
   /**

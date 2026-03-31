@@ -6,6 +6,15 @@ import { executeQuery } from "../router/query-executor.js";
 import { toolError } from "../utils/tool-result.js";
 import { envEnum } from "../utils/env-enum.js";
 
+const SQL_PREVIEW_MAX = 500;
+
+/** Truncate SQL for display in the elicitation prompt */
+function sqlPreview(sql: string): string {
+  const trimmed = sql.trim();
+  if (trimmed.length <= SQL_PREVIEW_MAX) return trimmed;
+  return trimmed.slice(0, SQL_PREVIEW_MAX) + "\n… (truncated)";
+}
+
 export function registerExecuteQuery(
   server: McpServer,
   connectionManager: ConnectionManager,
@@ -27,6 +36,74 @@ export function registerExecuteQuery(
     },
     async ({ env, sql }) => {
       try {
+        const envConfig = connectionManager.getEnvConfig(env);
+
+        // Layer 3: HITL confirmation for environments that require it
+        if (envConfig.approval === "hitl") {
+          const timeoutMs = validator?.hitlTimeoutMs ?? 60_000;
+
+          let elicitResult: {
+            action: string;
+            content?: Record<string, unknown>;
+          };
+          try {
+            elicitResult = await Promise.race([
+              server.server.elicitInput({
+                message:
+                  `Environment **${env}** requires your approval before executing.\n\n` +
+                  `\`\`\`sql\n${sqlPreview(sql)}\n\`\`\`\n\n` +
+                  `Approve to proceed.`,
+                requestedSchema: {
+                  type: "object" as const,
+                  properties: {
+                    confirmed: {
+                      type: "boolean",
+                      title: "Approve query",
+                      description: "Check to approve execution",
+                      default: false,
+                    },
+                  },
+                  required: ["confirmed"],
+                },
+              }),
+              new Promise<never>((_, reject) =>
+                setTimeout(
+                  () => reject(new Error("HITL_TIMEOUT")),
+                  timeoutMs,
+                ).unref(),
+              ),
+            ]);
+          } catch (err) {
+            const msg =
+              err instanceof Error && err.message === "HITL_TIMEOUT"
+                ? `Query rejected: approval timed out after ${timeoutMs / 1000}s.`
+                : `Query rejected: elicitation failed (${err instanceof Error ? err.message : String(err)}).`;
+            return { content: [{ type: "text", text: msg }] };
+          }
+
+          if (elicitResult.action !== "accept") {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Query rejected: user ${elicitResult.action === "decline" ? "declined" : "cancelled"} approval.`,
+                },
+              ],
+            };
+          }
+
+          if (!elicitResult.content?.["confirmed"]) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: "Query rejected: approval checkbox was not checked.",
+                },
+              ],
+            };
+          }
+        }
+
         const result = await executeQuery(
           connectionManager,
           env,

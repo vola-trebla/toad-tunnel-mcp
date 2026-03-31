@@ -27,6 +27,7 @@ const EnvConfigSchema = z.object({
 const SafetyConfigSchema = z.object({
   blocked_keywords: z.array(z.string()).default([]),
   max_rows: z.number().default(100),
+  hitl_timeout_ms: z.number().default(60_000),
 });
 
 export const ConfigSchema = z.object({
