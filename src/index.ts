@@ -8,6 +8,7 @@ import { registerExecuteQuery } from "./tools/execute-query.js";
 import { registerListNodes } from "./tools/list-nodes.js";
 import { registerGetOverview } from "./tools/get-overview.js";
 import { registerDescribeColumns } from "./tools/describe-columns.js";
+import { registerTunnelStatus } from "./tools/tunnel-status.js";
 
 const CONFIG_PATH = process.env["TOAD_CONFIG"] ?? "config/toad-tunnel.yaml";
 
@@ -32,6 +33,7 @@ registerListNodes(server, connectionManager);
 registerGetOverview(server, connectionManager, schemaCache);
 registerDescribeColumns(server, connectionManager, schemaCache);
 registerExecuteQuery(server, connectionManager);
+registerTunnelStatus(server, connectionManager, tunnelProvider);
 
 process.on("SIGINT", async () => {
   await connectionManager.shutdown();
