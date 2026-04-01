@@ -3,7 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/toad-tunnel-mcp)](https://www.npmjs.com/package/toad-tunnel-mcp)
 [![npm downloads](https://img.shields.io/npm/dm/toad-tunnel-mcp)](https://www.npmjs.com/package/toad-tunnel-mcp)
 [![CI](https://github.com/vola-trebla/toad-tunnel-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/vola-trebla/toad-tunnel-mcp/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/vola-trebla/toad-tunnel-mcp/blob/main/LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-supported-blue?logo=postgresql&logoColor=white)](https://www.postgresql.org)
 
@@ -75,7 +75,7 @@ safety:
   hitl_timeout_ms: 60000
 ```
 
-Full annotated example: [`config/toad-tunnel.example.yaml`](config/toad-tunnel.example.yaml)
+Full annotated example: [`config/toad-tunnel.example.yaml`](https://github.com/vola-trebla/toad-tunnel-mcp/blob/main/config/toad-tunnel.example.yaml)
 
 ## Tools
 

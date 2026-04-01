@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] — 2026-03-31
+
+### Fixed
+
+- Remove double audit logging for blocked queries
+- Remove redundant double blocklist validation in query executor
+- Support CTE/WITH queries in row budget wrapping
+- Fix race condition in SSH tunnel connect (inflight promise coalescing)
+- Fix reconnect gap where tunnel status briefly returned null
+- Fix CHANGELOG date ordering
+- Escape single quotes in seed script
+
+### Added
+
+- Environment variable interpolation in config (`${VAR_NAME}`)
+- Defensive guard for empty environment list in envEnum
+- Auto-invalidate schema cache after DDL queries
+- Always register tunnel_status tool (shows "no tunnels configured" when none exist)
+- Safety model documentation in README
+- Test coverage for config loader, schema, ConnectionManager, envEnum (84 → 112 tests)
+
 ## [0.1.1] — 2026-03-31
 
 ### Fixed
