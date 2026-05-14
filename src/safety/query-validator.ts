@@ -74,8 +74,9 @@ export class QueryValidator {
       return null;
 
     const fetchLimit = this.maxRows + 1;
+    const cleanSql = sql.trim().replace(/;+\s*$/, "");
     return {
-      sql: `SELECT * FROM (${sql}) AS _toad_budget LIMIT ${fetchLimit}`,
+      sql: `SELECT * FROM (${cleanSql}) AS _toad_budget LIMIT ${fetchLimit}`,
       fetchLimit,
     };
   }
