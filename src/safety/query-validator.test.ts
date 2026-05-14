@@ -108,6 +108,13 @@ describe("QueryValidator — row budget", () => {
     expect(result!.sql).toContain("_toad_budget");
   });
 
+  it("handles trailing semicolons by trimming them", () => {
+    const result = validator.wrapWithBudget("SELECT * FROM products;  ");
+    expect(result).not.toBeNull();
+    expect(result!.sql).not.toContain(";");
+    expect(result!.sql).toBe("SELECT * FROM (SELECT * FROM products) AS _toad_budget LIMIT 6");
+  });
+
   it("fetchLimit is always maxRows + 1", () => {
     const v = new QueryValidator({ max_rows: 100 });
     expect(v.wrapWithBudget("SELECT 1")!.fetchLimit).toBe(101);
