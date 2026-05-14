@@ -89,6 +89,14 @@ describe("QueryValidator — keyword blocklist", () => {
     ).toEqual({ ok: true });
   });
 
+  it("does not block keywords inside string literals", () => {
+    const result = validator.validate(
+      "SELECT * FROM comments WHERE text = 'Please DELETE this'",
+      "read-only",
+    );
+    expect(result.ok).toBe(true);
+  });
+
   it("empty blocklist always passes", () => {
     const v = new QueryValidator({ blocked_keywords: [], max_rows: 100 });
     expect(v.validate("DROP TABLE products", "read-only")).toEqual({
@@ -112,7 +120,9 @@ describe("QueryValidator — row budget", () => {
     const result = validator.wrapWithBudget("SELECT * FROM products;  ");
     expect(result).not.toBeNull();
     expect(result!.sql).not.toContain(";");
-    expect(result!.sql).toBe("SELECT * FROM (SELECT * FROM products) AS _toad_budget LIMIT 6");
+    expect(result!.sql).toBe(
+      "SELECT * FROM (SELECT * FROM products) AS _toad_budget LIMIT 6",
+    );
   });
 
   it("fetchLimit is always maxRows + 1", () => {

@@ -93,6 +93,7 @@ export class QueryValidator {
     return sql
       .replace(/--[^\n]*/g, " ") // strip line comments
       .replace(/\/\*[\s\S]*?\*\//g, " ") // strip block comments (non-nested)
+      .replace(/'(?:''|[^'])*'/g, "'STR'") // replace string literals with placeholder to avoid over-blocking
       .toUpperCase()
       .replace(/\s+/g, " ")
       .trim();
